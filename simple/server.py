@@ -58,7 +58,7 @@ async def handle_client(client, loop):
 
         if isinstance(obj, UpperRequest):
             text = obj.text.upper()
-            # text = obj.text.upper("a")
+            # text = obj.text.capatalize("upper")
             response = UpperReply(text)
         else:
             response = UpperException("unknown message")
