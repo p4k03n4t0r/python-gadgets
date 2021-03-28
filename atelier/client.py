@@ -55,6 +55,7 @@ def dict_to_object(d):
 
 async def rpc_client(message):
     message = json.dumps(message, default=object_to_dict)
+    print(message)
 
     reader, writer = await asyncio.open_connection(sys.argv[1], int(sys.argv[2]))
     writer.write(message.encode())
