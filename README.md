@@ -502,3 +502,9 @@ c = MyClass()
 c()
 # prints: You have called MyClass!
 ```
+
+Okay so we can reference classes which have implemented the `__call__`. Let's see what happens next in the program:
+
+![Debug 5](resources/debug5.png)
+
+So as expected, the `copy` method now points to the
