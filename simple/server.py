@@ -26,8 +26,6 @@ def dict_to_object(d):
     if "__class__" in d:
         class_name = d.pop("__class__")
         module_name = d.pop("__module__")
-        # if module_name not in ["__main__"]:
-        #     raise ModuleNotFoundError(f"I can't use the classes from {module_name}")
 
         module = importlib.import_module(module_name)
         class_ = getattr(module, class_name)
@@ -51,14 +49,12 @@ def object_to_dict(o):
 
 
 async def handle_client(client, loop):
-
     try:
         dat = await loop.sock_recv(client, 2000)
         obj = json.loads(dat, object_hook=dict_to_object)
 
         if isinstance(obj, UpperRequest):
             text = obj.text.upper()
-            # text = obj.text.capatalize("upper")
             response = UpperReply(text)
         else:
             response = UpperException("unknown message")
