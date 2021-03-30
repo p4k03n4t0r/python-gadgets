@@ -1,6 +1,6 @@
 # LINECTF2021 Atelier: python-gadgets
 
-Recently I did the LINECTF2021, which had the pwn challenge Atelier. During the challenge I had an idea where to go with the exploit, but didn't manage to find it during the CTF. After the CTF I looked at two write-ups and played around with them. How these exploits worked were really interesting to me as a Python developer and thus I write this post about it. First I'll give some background information about another exploit type, ROP chains. This at first doesn't seem that relevant, since the challenge was written in Python and not in C, but later on it becomes clear that the exploit for this challenge uses really similar mechanics.
+Recently I did the LINECTF2021, which had the pwn challenge Atelier. During the challenge I had an idea where to go with the exploit, but didn't manage to find it during the CTF. After the CTF I looked at two write-ups and played around with them. How these exploits worked were really interesting to me as a Python developer and thus I decided to write this post about it. First I'll give some background information about another exploit type, ROP chains. This at first doesn't seem that relevant, since the challenge was written in Python, where such an exploit is not possible. But later on it becomes clear why this type of exploit is still relevant.
 
 This repository contains all the files related to the challenge in the `atelier` folder. Later on I'll also be talking about a simplified example, which can be found in the `simple` folder.
 
